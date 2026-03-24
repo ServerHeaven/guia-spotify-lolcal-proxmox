@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tu Propio Spotify Local — Guía Navidrome + spotDL en Proxmox</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0f;
+  --bg2: #111118;
+  --bg3: #1a1a24;
+  --surface: #16161f;
+  --surface2: #1e1e2a;
+  --border: #2a2a3a;
+  --text: #e8e6f0;
+  --text-dim: #8888a0;
+  --text-muted: #555568;
+  --accent: #1ed760;
+  --accent2: #1db954;
+  --accent-glow: rgba(30, 215, 96, 0.15);
+  --purple: #a855f7;
+  --blue: #3b82f6;
+  --orange: #f59e0b;
+  --red: #ef4444;
+  --cyan: #06b6d4;
+  --code-bg: #0d0d14;
+  --code-border: #1f1f30;
+  --gradient1: linear-gradient(135deg, #1ed760, #06b6d4);
+  --gradient2: linear-gradient(135deg, #a855f7, #3b82f6);
+  --gradient3: linear-gradient(135deg, #f59e0b, #ef4444);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) var(--bg);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-weight: 400;
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* ── NOISE OVERLAY ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── SIDEBAR NAV ── */
+.sidebar {
+  position: fixed;
+  left: 0; top: 0;
+  width: 280px;
+  height: 100vh;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 24px 0;
+  overflow-y: auto;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-logo {
+  padding: 0 24px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sidebar-logo .icon {
+  width: 40px; height: 40px;
+  background: var(--gradient1);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.sidebar-logo span {
+  font-weight: 700;
+  font-size: 15px;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.sidebar-logo small {
+  display: block;
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 16px 12px;
+  list-style: none;
+}
+
+.sidebar-nav li { margin-bottom: 2px; }
+
+.sidebar-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.sidebar-nav a:hover,
+.sidebar-nav a.active {
+  color: var(--text);
+  background: var(--accent-glow);
+}
+
+.sidebar-nav a.active {
+  color: var(--accent);
+}
+
+.sidebar-nav .num {
+  width: 22px; height: 22px;
+  background: var(--bg);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.sidebar-nav a.active .num {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+/* ── MAIN CONTENT ── */
+.main {
+  margin-left: 280px;
+  min-height: 100vh;
+}
+
+/* ── HERO ── */
+.hero {
+  position: relative;
+  padding: 120px 80px 100px;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 30% 0%, rgba(30, 215, 96, 0.08) 0%, transparent 60%),
+              radial-gradient(ellipse at 70% 100%, rgba(168, 85, 247, 0.06) 0%, transparent 50%),
+              var(--bg);
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -200px; right: -200px;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(30, 215, 96, 0.06), transparent 70%);
+  border-radius: 50%;
+  animation: float 20s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-40px, 30px) scale(1.1); }
+  66% { transform: translate(20px, -20px) scale(0.95); }
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 32px;
+  animation: fadeUp 0.8s ease;
+}
+
+.hero h1 {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 900;
+  font-size: clamp(48px, 6vw, 80px);
+  line-height: 1.05;
+  letter-spacing: -2px;
+  margin-bottom: 24px;
+  animation: fadeUp 0.8s ease 0.1s both;
+}
+
+.hero h1 .green { color: var(--accent); }
+.hero h1 .dim { color: var(--text-muted); font-weight: 300; }
+
+.hero p {
+  font-size: 18px;
+  color: var(--text-dim);
+  max-width: 600px;
+  line-height: 1.8;
+  animation: fadeUp 0.8s ease 0.2s both;
+}
+
+.hero-stack {
+  display: flex;
+  gap: 12px;
+  margin-top: 40px;
+  animation: fadeUp 0.8s ease 0.3s both;
+}
+
+.hero-stack .chip {
+  padding: 8px 18px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+.chip-green { border-color: var(--accent) !important; color: var(--accent); background: rgba(30,215,96,0.08); }
+.chip-purple { border-color: var(--purple) !important; color: var(--purple); background: rgba(168,85,247,0.08); }
+.chip-blue { border-color: var(--blue) !important; color: var(--blue); background: rgba(59,130,246,0.08); }
+.chip-orange { border-color: var(--orange) !important; color: var(--orange); background: rgba(245,158,11,0.08); }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── SECTIONS ── */
+.section {
+  padding: 80px;
+  border-top: 1px solid var(--border);
+  position: relative;
+}
+
+.section:nth-child(even) {
+  background: var(--bg2);
+}
+
+.section-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  margin-bottom: 12px;
+}
+
+.section h2 {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 36px;
+  letter-spacing: -1px;
+  margin-bottom: 40px;
+  line-height: 1.2;
+}
+
+.section h3 {
+  font-weight: 700;
+  font-size: 22px;
+  margin: 48px 0 16px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section h3::before {
+  content: '';
+  width: 4px;
+  height: 22px;
+  background: var(--gradient1);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.section p {
+  color: var(--text-dim);
+  font-size: 15.5px;
+  max-width: 800px;
+  margin-bottom: 16px;
+}
+
+/* ── CODE BLOCKS ── */
+.code-block {
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-radius: 12px;
+  margin: 20px 0 28px;
+  overflow: hidden;
+  position: relative;
+}
+
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid var(--code-border);
+}
+
+.code-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.code-dots span {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+}
+
+.code-dots span:nth-child(1) { background: #ff5f57; }
+.code-dots span:nth-child(2) { background: #ffbd2e; }
+.code-dots span:nth-child(3) { background: #28c840; }
+
+.code-lang {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.code-block pre {
+  padding: 20px;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.8;
+  color: #c8c8d8;
+}
+
+.code-block .comment { color: #555570; }
+.code-block .string { color: #1ed760; }
+.code-block .keyword { color: #a855f7; }
+.code-block .flag { color: #06b6d4; }
+.code-block .value { color: #f59e0b; }
+.code-block .cmd { color: #3b82f6; }
+
+/* ── TABLES ── */
+.table-wrap {
+  margin: 24px 0 32px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th {
+  background: var(--surface2);
+  padding: 14px 20px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 12px 20px;
+  font-size: 14px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+
+tr:last-child td { border-bottom: none; }
+
+tr:hover td { background: rgba(30, 215, 96, 0.03); }
+
+td:first-child { font-weight: 600; color: var(--text); }
+
+.url-cell {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--cyan) !important;
+  word-break: break-all;
+}
+
+/* ── CALLOUTS ── */
+.callout {
+  padding: 20px 24px;
+  border-radius: 12px;
+  margin: 24px 0;
+  border-left: 4px solid;
+  font-size: 14px;
+}
+
+.callout-title {
+  font-weight: 700;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.callout p { font-size: 14px; margin: 0; }
+
+.callout-tip {
+  background: rgba(30, 215, 96, 0.06);
+  border-color: var(--accent);
+}
+.callout-tip .callout-title { color: var(--accent); }
+
+.callout-warn {
+  background: rgba(245, 158, 11, 0.06);
+  border-color: var(--orange);
+}
+.callout-warn .callout-title { color: var(--orange); }
+
+.callout-danger {
+  background: rgba(239, 68, 68, 0.06);
+  border-color: var(--red);
+}
+.callout-danger .callout-title { color: var(--red); }
+
+.callout-info {
+  background: rgba(59, 130, 246, 0.06);
+  border-color: var(--blue);
+}
+.callout-info .callout-title { color: var(--blue); }
+
+/* ── ARCHITECTURE DIAGRAM ── */
+.arch-diagram {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px;
+  margin: 32px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.arch-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.arch-box {
+  padding: 14px 24px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid;
+  min-width: 140px;
+}
+
+.arch-box.proxmox { background: rgba(168,85,247,0.1); border-color: var(--purple); color: var(--purple); }
+.arch-box.docker { background: rgba(59,130,246,0.1); border-color: var(--blue); color: var(--blue); }
+.arch-box.navidrome { background: rgba(30,215,96,0.1); border-color: var(--accent); color: var(--accent); }
+.arch-box.spotdl { background: rgba(245,158,11,0.1); border-color: var(--orange); color: var(--orange); }
+.arch-box.storage { background: rgba(6,182,212,0.1); border-color: var(--cyan); color: var(--cyan); }
+.arch-box.client { background: rgba(239,68,68,0.08); border-color: var(--red); color: var(--red); }
+
+.arch-arrow {
+  font-size: 20px;
+  color: var(--text-muted);
+}
+
+/* ── CLIENT CARDS ── */
+.client-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.client-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s;
+}
+
+.client-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(30, 215, 96, 0.08);
+}
+
+.client-card h4 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.client-card .platform {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.client-card .desc {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.client-card .price {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+/* ── STEP MARKERS ── */
+.steps { counter-reset: step; }
+
+.step {
+  position: relative;
+  padding-left: 48px;
+  margin-bottom: 20px;
+}
+
+.step::before {
+  counter-increment: step;
+  content: counter(step);
+  position: absolute;
+  left: 0; top: 2px;
+  width: 32px; height: 32px;
+  background: var(--accent);
+  color: var(--bg);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.step p { margin: 0; color: var(--text-dim); font-size: 15px; }
+.step strong { color: var(--text); }
+
+/* ── FOOTER ── */
+.footer {
+  padding: 48px 80px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.footer .accent-text {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1024px) {
+  .sidebar { display: none; }
+  .main { margin-left: 0; }
+  .hero, .section { padding: 48px 24px; }
+  .hero h1 { font-size: 36px; letter-spacing: -1px; }
+  .arch-diagram { padding: 20px; }
+}
+
+/* ── SCROLL ANIMATIONS ── */
+.reveal {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="icon">♫</div>
+    <span>Spotify Local<small>Guía Navidrome + Proxmox</small></span>
+  </div>
+  <ul class="sidebar-nav">
+    <li><a href="#intro"><span class="num">01</span> Introducción</a></li>
+    <li><a href="#requisitos"><span class="num">02</span> Requisitos</a></li>
+    <li><a href="#lxc"><span class="num">03</span> Contenedor LXC</a></li>
+    <li><a href="#docker"><span class="num">04</span> Docker</a></li>
+    <li><a href="#navidrome"><span class="num">05</span> Navidrome</a></li>
+    <li><a href="#config"><span class="num">06</span> Configuración</a></li>
+    <li><a href="#spotdl"><span class="num">07</span> spotDL</a></li>
+    <li><a href="#cron"><span class="num">08</span> Automatización</a></li>
+    <li><a href="#urls"><span class="num">09</span> URLs Top 50</a></li>
+    <li><a href="#script"><span class="num">10</span> Script Maestro</a></li>
+    <li><a href="#tailscale"><span class="num">11</span> Acceso Remoto</a></li>
+    <li><a href="#clientes"><span class="num">12</span> Clientes</a></li>
+    <li><a href="#backup"><span class="num">13</span> Mantenimiento</a></li>
+    <li><a href="#problemas"><span class="num">14</span> Problemas</a></li>
+  </ul>
+</nav>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- HERO -->
+  <header class="hero" id="top">
+    <div class="hero-badge">◆ Guía Completa — Marzo 2026</div>
+    <h1>Tu Propio<br><span class="green">Spotify Local</span><br><span class="dim">en Proxmox</span></h1>
+    <p>Servidor de streaming musical autoalojado con descarga automática de las listas más escuchadas de EE.UU., España, México y más. Sin suscripciones, sin rastreo, 100% tuyo.</p>
+    <div class="hero-stack">
+      <span class="chip chip-green">Navidrome</span>
+      <span class="chip chip-purple">Proxmox VE</span>
+      <span class="chip chip-orange">spotDL</span>
+      <span class="chip chip-blue">Docker</span>
+    </div>
+  </header>
+
+  <!-- 1. INTRODUCCION -->
+  <section class="section" id="intro">
+    <div class="reveal">
+      <div class="section-num">Sección 01</div>
+      <h2>Introducción y Arquitectura</h2>
+      <p>Esta guía cubre la instalación completa de un servidor de música tipo Spotify, autoalojado en Proxmox. Combinaremos dos herramientas potentes:</p>
+      <p><strong style="color:var(--accent)">Navidrome</strong> — Servidor de streaming musical open source, ligero y compatible con el protocolo Subsonic. Interfaz web moderna con soporte para múltiples usuarios, playlists, favoritos, letras y transcodificación al vuelo.</p>
+      <p><strong style="color:var(--orange)">spotDL</strong> — Herramienta CLI que busca canciones en YouTube a partir de metadatos de Spotify. Descarga con carátulas, letras y metadatos completos. Su función <code>sync</code> permite mantener playlists actualizadas automáticamente.</p>
+
+      <h3>Arquitectura del Sistema</h3>
+      <div class="arch-diagram">
+        <div class="arch-row">
+          <div class="arch-box proxmox">🖥 Proxmox VE<br><small>Host de virtualización</small></div>
+        </div>
+        <div class="arch-arrow">▼</div>
+        <div class="arch-row">
+          <div class="arch-box docker">🐳 Contenedor LXC<br><small>Debian 12 + Docker</small></div>
+        </div>
+        <div class="arch-arrow">▼</div>
+        <div class="arch-row">
+          <div class="arch-box navidrome">♫ Navidrome<br><small>Puerto 4533</small></div>
+          <div class="arch-box spotdl">⬇ spotDL + Cron<br><small>Descarga automática</small></div>
+          <div class="arch-box storage">💾 /music<br><small>Volumen compartido</small></div>
+        </div>
+        <div class="arch-arrow">▼</div>
+        <div class="arch-row">
+          <div class="arch-box client">📱 Symfonium</div>
+          <div class="arch-box client">📱 play:Sub</div>
+          <div class="arch-box client">🖥 Navegador Web</div>
+          <div class="arch-box client">💻 Feishin</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. REQUISITOS -->
+  <section class="section" id="requisitos">
+    <div class="reveal">
+      <div class="section-num">Sección 02</div>
+      <h2>Requisitos Previos</h2>
+
+      <h3>Hardware</h3>
+      <p>Navidrome es extremadamente ligero. Puede correr hasta en un Raspberry Pi.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Componente</th><th>Mínimo</th><th>Recomendado</th></tr></thead>
+          <tbody>
+            <tr><td>CPU</td><td>1 core</td><td>2 cores</td></tr>
+            <tr><td>RAM</td><td>512 MB</td><td>1-2 GB</td></tr>
+            <tr><td>Disco (SO)</td><td>8 GB</td><td>20 GB</td></tr>
+            <tr><td>Disco (música)</td><td>Según colección</td><td>500 GB+ (HDD/NAS)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Software</h3>
+      <p>Proxmox VE 7.x o superior instalado y funcionando, acceso SSH al host, y conexión a internet en el contenedor para descargar música.</p>
+    </div>
+  </section>
+
+  <!-- 3. LXC -->
+  <section class="section" id="lxc">
+    <div class="reveal">
+      <div class="section-num">Sección 03</div>
+      <h2>Creación del Contenedor LXC en Proxmox</h2>
+
+      <h3>Opción A: Interfaz Web</h3>
+      <div class="steps">
+        <div class="step"><p>Abre la interfaz web de Proxmox en <strong>https://tu-ip:8006</strong></p></div>
+        <div class="step"><p>Descarga el template de <strong>Debian 12</strong> o <strong>Ubuntu 24.04</strong> desde el repositorio</p></div>
+        <div class="step"><p>Crea un nuevo contenedor CT con los parámetros de la tabla</p></div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Parámetro</th><th>Valor</th></tr></thead>
+          <tbody>
+            <tr><td>Hostname</td><td>navidrome</td></tr>
+            <tr><td>Template</td><td>debian-12-standard o ubuntu-24.04</td></tr>
+            <tr><td>Disco raíz</td><td>16 GB</td></tr>
+            <tr><td>CPU</td><td>2 cores</td></tr>
+            <tr><td>Memoria</td><td>1024 MB</td></tr>
+            <tr><td>Swap</td><td>512 MB</td></tr>
+            <tr><td>Red</td><td>DHCP o IP estática</td></tr>
+            <tr><td>Nesting</td><td>✅ Habilitado (necesario para Docker)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Opción B: Línea de Comandos SSH</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="comment"># Descargar template (si no lo tienes)</span>
+<span class="cmd">pveam download</span> local debian-12-standard_12.7-1_amd64.tar.zst
+
+<span class="comment"># Crear contenedor</span>
+<span class="cmd">pct create</span> <span class="value">200</span> local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst \
+  <span class="flag">--hostname</span> navidrome \
+  <span class="flag">--memory</span> <span class="value">1024</span> <span class="flag">--swap</span> <span class="value">512</span> \
+  <span class="flag">--cores</span> <span class="value">2</span> \
+  <span class="flag">--rootfs</span> local-lvm:16 \
+  <span class="flag">--net0</span> name=eth0,bridge=vmbr0,ip=dhcp \
+  <span class="flag">--features</span> nesting=1 \
+  <span class="flag">--unprivileged</span> <span class="value">1</span> \
+  <span class="flag">--start</span> <span class="value">1</span></pre>
+      </div>
+
+      <div class="callout callout-tip">
+        <div class="callout-title">💡 Consejo: IP Estática</div>
+        <p>Es muy recomendable asignar una IP estática para acceder siempre a Navidrome en la misma dirección. Usa: <code>--net0 name=eth0,bridge=vmbr0,ip=192.168.1.50/24,gw=192.168.1.1</code></p>
+      </div>
+
+      <h3>Montar almacenamiento externo (NAS/disco)</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">config</span>
+        </div>
+<pre><span class="comment"># Editar /etc/pve/lxc/200.conf en el host Proxmox</span>
+<span class="comment"># Agregar línea para montar directorio:</span>
+mp0: /mnt/nas/music,mp=/mnt/music</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. DOCKER -->
+  <section class="section" id="docker">
+    <div class="reveal">
+      <div class="section-num">Sección 04</div>
+      <h2>Instalación de Docker y Docker Compose</h2>
+      <p>Entra al contenedor y ejecuta los siguientes comandos para instalar Docker desde el repositorio oficial:</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="comment"># Entrar al contenedor desde Proxmox</span>
+<span class="cmd">pct enter</span> <span class="value">200</span>
+
+<span class="comment"># Actualizar paquetes</span>
+<span class="cmd">apt update</span> && <span class="cmd">apt upgrade</span> -y
+
+<span class="comment"># Instalar dependencias</span>
+<span class="cmd">apt install</span> -y ca-certificates curl gnupg lsb-release
+
+<span class="comment"># Agregar repositorio oficial de Docker</span>
+<span class="cmd">install</span> -m 0755 -d /etc/apt/keyrings
+<span class="cmd">curl</span> -fsSL https://download.docker.com/linux/debian/gpg \
+  | <span class="cmd">gpg</span> --dearmor -o /etc/apt/keyrings/docker.gpg
+<span class="cmd">chmod</span> a+r /etc/apt/keyrings/docker.gpg
+
+<span class="cmd">echo</span> <span class="string">"deb [arch=$(dpkg --print-architecture) \
+  signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/debian \
+  $(lsb_release -cs) stable"</span> \
+  | <span class="cmd">tee</span> /etc/apt/sources.list.d/docker.list > /dev/null
+
+<span class="comment"># Instalar Docker</span>
+<span class="cmd">apt update</span>
+<span class="cmd">apt install</span> -y docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin
+
+<span class="comment"># Verificar instalación</span>
+<span class="cmd">docker</span> --version
+<span class="cmd">docker compose</span> version</pre>
+      </div>
+
+      <div class="callout callout-info">
+        <div class="callout-title">ℹ️ Para Ubuntu</div>
+        <p>Si usas Ubuntu en lugar de Debian, cambia <code>debian</code> por <code>ubuntu</code> en la URL del repositorio de Docker.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. NAVIDROME -->
+  <section class="section" id="navidrome">
+    <div class="reveal">
+      <div class="section-num">Sección 05</div>
+      <h2>Despliegue de Navidrome</h2>
+
+      <h3>Crear estructura de directorios</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="cmd">mkdir</span> -p /opt/navidrome/data
+<span class="cmd">mkdir</span> -p /mnt/music</pre>
+      </div>
+
+      <h3>Archivo docker-compose.yml</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">yaml — /opt/navidrome/docker-compose.yml</span>
+        </div>
+<pre><span class="keyword">services</span>:
+  <span class="keyword">navidrome</span>:
+    <span class="flag">image</span>: <span class="string">deluan/navidrome:latest</span>
+    <span class="flag">container_name</span>: navidrome
+    <span class="flag">user</span>: <span class="string">"0:0"</span>
+    <span class="flag">ports</span>:
+      - <span class="string">"4533:4533"</span>
+    <span class="flag">restart</span>: unless-stopped
+    <span class="flag">environment</span>:
+      <span class="value">ND_SCANSCHEDULE</span>: 15m
+      <span class="value">ND_LOGLEVEL</span>: info
+      <span class="value">ND_SESSIONTIMEOUT</span>: 72h
+      <span class="value">ND_ENABLETRANSCODING</span>: <span class="string">"true"</span>
+      <span class="value">ND_TRANSCODINGCACHESIZE</span>: 1GB
+      <span class="value">ND_ENABLESHARING</span>: <span class="string">"true"</span>
+      <span class="value">ND_ENABLEDOWNLOADS</span>: <span class="string">"true"</span>
+      <span class="value">ND_DEFAULTLANGUAGE</span>: es
+    <span class="flag">volumes</span>:
+      - <span class="string">"/opt/navidrome/data:/data"</span>
+      - <span class="string">"/mnt/music:/music:ro"</span></pre>
+      </div>
+
+      <h3>Levantar el servicio</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="cmd">cd</span> /opt/navidrome
+<span class="cmd">docker compose</span> up -d
+
+<span class="comment"># Verificar que está corriendo</span>
+<span class="cmd">docker compose</span> ps
+<span class="cmd">docker compose</span> logs -f navidrome</pre>
+      </div>
+
+      <p>Navidrome estará disponible en <strong style="color:var(--accent)">http://IP-DEL-CONTENEDOR:4533</strong></p>
+      <p>La primera vez que accedas, te pedirá crear un usuario administrador.</p>
+
+      <div class="callout callout-warn">
+        <div class="callout-title">⚠️ ND_SCANSCHEDULE</div>
+        <p>Configuramos el escaneo cada 15 minutos para que la música nueva de spotDL aparezca rápido. Ajusta a <code>1h</code> si prefieres menos carga.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. CONFIGURACION -->
+  <section class="section" id="config">
+    <div class="reveal">
+      <div class="section-num">Sección 06</div>
+      <h2>Configuración de Navidrome</h2>
+
+      <h3>Primer acceso</h3>
+      <div class="steps">
+        <div class="step"><p>Abre tu navegador → <strong>http://IP:4533</strong></p></div>
+        <div class="step"><p>Crea tu cuenta de administrador</p></div>
+        <div class="step"><p>Navidrome escaneará <code>/music</code> automáticamente</p></div>
+      </div>
+
+      <h3>Variables de entorno avanzadas</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Variable</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td>ND_SCANSCHEDULE</td><td>Frecuencia de escaneo (15m, 1h, @every 30m)</td></tr>
+            <tr><td>ND_ENABLETRANSCODING</td><td>Transcodificación al vuelo (true/false)</td></tr>
+            <tr><td>ND_TRANSCODINGCACHESIZE</td><td>Caché de transcodificación (ej: 1GB)</td></tr>
+            <tr><td>ND_ENABLESHARING</td><td>Permitir compartir enlaces públicos</td></tr>
+            <tr><td>ND_ENABLEDOWNLOADS</td><td>Permitir descargas desde la interfaz</td></tr>
+            <tr><td>ND_DEFAULTLANGUAGE</td><td>Idioma por defecto (es, en, pt)</td></tr>
+            <tr><td>ND_ENABLESTARRATING</td><td>Habilitar valoraciones con estrellas</td></tr>
+            <tr><td>ND_LASTFM_APIKEY</td><td>API key de Last.fm para scrobbling</td></tr>
+            <tr><td>ND_SPOTIFY_ID / SECRET</td><td>Para obtener carátulas desde Spotify</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Usuarios adicionales</h3>
+      <p>Desde la interfaz web → <strong>Ajustes → Usuarios</strong>. Cada usuario tiene sus propias listas, favoritos e historial independiente.</p>
+    </div>
+  </section>
+
+  <!-- 7. SPOTDL -->
+  <section class="section" id="spotdl">
+    <div class="reveal">
+      <div class="section-num">Sección 07</div>
+      <h2>Instalación de spotDL</h2>
+      <p>spotDL es una herramienta de código abierto que busca canciones en YouTube a partir de metadatos de Spotify. Descarga todo con carátulas, artista, álbum, letras y género.</p>
+
+      <h3>Instalación</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="comment"># Instalar Python y dependencias</span>
+<span class="cmd">apt install</span> -y python3 python3-pip ffmpeg
+
+<span class="comment"># Instalar spotDL</span>
+<span class="cmd">pip3 install</span> spotdl <span class="flag">--break-system-packages</span>
+
+<span class="comment"># Verificar</span>
+<span class="cmd">spotdl</span> --version</pre>
+      </div>
+
+      <h3>Uso básico</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="comment"># Descargar una canción</span>
+<span class="cmd">spotdl download</span> <span class="string">"https://open.spotify.com/track/ID_CANCION"</span>
+
+<span class="comment"># Descargar playlist completa con estructura de carpetas</span>
+<span class="cmd">spotdl download</span> <span class="string">"https://open.spotify.com/playlist/ID_PLAYLIST"</span> \
+  <span class="flag">--output</span> <span class="string">"/mnt/music/{artist}/{album}/{title}.{output-ext}"</span></pre>
+      </div>
+
+      <h3>Función SYNC (clave para automatización)</h3>
+      <p>La función <code>sync</code> compara el estado actual de una playlist con lo descargado: baja las nuevas y elimina las que ya no están.</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="comment"># Primera vez: crear archivo de sincronización</span>
+<span class="cmd">spotdl sync</span> <span class="string">"URL_PLAYLIST"</span> \
+  <span class="flag">--save-file</span> <span class="string">"/opt/spotdl/nombre.sync.spotdl"</span> \
+  <span class="flag">--output</span> <span class="string">"/mnt/music/Playlists/Nombre/{title}.{output-ext}"</span>
+
+<span class="comment"># Ejecuciones posteriores: solo actualizar</span>
+<span class="cmd">spotdl sync</span> <span class="string">"/opt/spotdl/nombre.sync.spotdl"</span></pre>
+      </div>
+
+      <div class="callout callout-tip">
+        <div class="callout-title">💡 Ventaja de SYNC</div>
+        <p>No re-descarga toda la playlist cada vez. Solo baja canciones nuevas y elimina las que se quitaron. Perfecto para playlists que cambian semanalmente como los Top 50.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8. CRON -->
+  <section class="section" id="cron">
+    <div class="reveal">
+      <div class="section-num">Sección 08</div>
+      <h2>Automatización con Cron Jobs</h2>
+
+      <h3>Crear directorios de trabajo</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="cmd">mkdir</span> -p /opt/spotdl
+<span class="cmd">mkdir</span> -p /mnt/music/Playlists
+<span class="cmd">mkdir</span> -p /var/log/spotdl</pre>
+      </div>
+
+      <h3>Inicializar sincronizaciones</h3>
+      <p>Ejecuta una vez para crear los archivos <code>.sync.spotdl</code>:</p>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="comment"># Top 50 Global</span>
+<span class="cmd">spotdl sync</span> <span class="string">"https://open.spotify.com/playlist/37i9dQZEVXbMDoHDwVN2tF"</span> \
+  <span class="flag">--save-file</span> <span class="string">"/opt/spotdl/top50-global.sync.spotdl"</span> \
+  <span class="flag">--output</span> <span class="string">"/mnt/music/Playlists/Top50-Global/{title}.{output-ext}"</span>
+
+<span class="comment"># Top 50 USA</span>
+<span class="cmd">spotdl sync</span> <span class="string">"https://open.spotify.com/playlist/37i9dQZEVXbLRQDuF5jeBp"</span> \
+  <span class="flag">--save-file</span> <span class="string">"/opt/spotdl/top50-usa.sync.spotdl"</span> \
+  <span class="flag">--output</span> <span class="string">"/mnt/music/Playlists/Top50-USA/{title}.{output-ext}"</span>
+
+<span class="comment"># Top 50 España</span>
+<span class="cmd">spotdl sync</span> <span class="string">"https://open.spotify.com/playlist/37i9dQZEVXbNFJfN1Vw8d9"</span> \
+  <span class="flag">--save-file</span> <span class="string">"/opt/spotdl/top50-spain.sync.spotdl"</span> \
+  <span class="flag">--output</span> <span class="string">"/mnt/music/Playlists/Top50-Spain/{title}.{output-ext}"</span>
+
+<span class="comment"># Top 50 México</span>
+<span class="cmd">spotdl sync</span> <span class="string">"https://open.spotify.com/playlist/37i9dQZEVXbO3qyFxbkOE1"</span> \
+  <span class="flag">--save-file</span> <span class="string">"/opt/spotdl/top50-mexico.sync.spotdl"</span> \
+  <span class="flag">--output</span> <span class="string">"/mnt/music/Playlists/Top50-Mexico/{title}.{output-ext}"</span></pre>
+      </div>
+
+      <h3>Configurar Cron</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">crontab — crontab -e</span>
+        </div>
+<pre><span class="comment"># Sincronizar playlists Top 50 cada día a las 3 AM</span>
+<span class="value">0 3 * * *</span>   /usr/local/bin/spotdl sync /opt/spotdl/top50-global.sync.spotdl >> /var/log/spotdl/global.log 2>&1
+<span class="value">15 3 * * *</span>  /usr/local/bin/spotdl sync /opt/spotdl/top50-usa.sync.spotdl >> /var/log/spotdl/usa.log 2>&1
+<span class="value">30 3 * * *</span>  /usr/local/bin/spotdl sync /opt/spotdl/top50-spain.sync.spotdl >> /var/log/spotdl/spain.log 2>&1
+<span class="value">45 3 * * *</span>  /usr/local/bin/spotdl sync /opt/spotdl/top50-mexico.sync.spotdl >> /var/log/spotdl/mexico.log 2>&1</pre>
+      </div>
+
+      <div class="callout callout-tip">
+        <div class="callout-title">💡 ¿Por qué escalonados cada 15 min?</div>
+        <p>Ejecutar todo a la vez puede saturar tu conexión y provocar errores de throttling en YouTube. Escalonándolas se evitan bloqueos.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9. URLS -->
+  <section class="section" id="urls">
+    <div class="reveal">
+      <div class="section-num">Sección 09</div>
+      <h2>URLs Oficiales de Playlists Top 50</h2>
+      <p>Estas son las playlists oficiales mantenidas por Spotify, actualizadas diariamente. Usa estas URLs con spotDL:</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>País / Región</th><th>URL de Spotify</th></tr></thead>
+          <tbody>
+            <tr><td>🌍 Global</td><td class="url-cell">https://open.spotify.com/playlist/37i9dQZEVXbMDoHDwVN2tF</td></tr>
+            <tr><td>🇺🇸 Estados Unidos</td><td class="url-cell">https://open.spotify.com/playlist/37i9dQZEVXbLRQDuF5jeBp</td></tr>
+            <tr><td>🇪🇸 España</td><td class="url-cell">https://open.spotify.com/playlist/37i9dQZEVXbNFJfN1Vw8d9</td></tr>
+            <tr><td>🇲🇽 México</td><td class="url-cell">https://open.spotify.com/playlist/37i9dQZEVXbO3qyFxbkOE1</td></tr>
+            <tr><td>🇦🇷 Argentina</td><td class="url-cell">https://open.spotify.com/playlist/37i9dQZEVXbMMy2roB9myp</td></tr>
+            <tr><td>🇨🇴 Colombia</td><td class="url-cell">https://open.spotify.com/playlist/37i9dQZEVXbOa2lmxNORXQ</td></tr>
+            <tr><td>🇬🇧 Reino Unido</td><td class="url-cell">https://open.spotify.com/playlist/37i9dQZEVXbLnolsZ8PSNw</td></tr>
+            <tr><td>🇫🇷 Francia</td><td class="url-cell">https://open.spotify.com/playlist/37i9dQZEVXbIPWwFssbupI</td></tr>
+            <tr><td>🇩🇪 Alemania</td><td class="url-cell">https://open.spotify.com/playlist/37i9dQZEVXbJiZcmkrIHGU</td></tr>
+            <tr><td>🇧🇷 Brasil</td><td class="url-cell">https://open.spotify.com/playlist/37i9dQZEVXbMXbN3EUUhlg</td></tr>
+            <tr><td>🇮🇹 Italia</td><td class="url-cell">https://open.spotify.com/playlist/37i9dQZEVXbIQnj7RRhdSX</td></tr>
+            <tr><td>🇨🇱 Chile</td><td class="url-cell">https://open.spotify.com/playlist/37i9dQZEVXbL0GavIqMTeb</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Todas las playlists oficiales siguen el patrón <code>37i9dQZEVXb</code> + identificador del país.</p>
+    </div>
+  </section>
+
+  <!-- 10. SCRIPT -->
+  <section class="section" id="script">
+    <div class="reveal">
+      <div class="section-num">Sección 10</div>
+      <h2>Script Maestro de Sincronización</h2>
+      <p>En lugar de múltiples entradas en cron, usa un solo script que gestione todas las playlists con pausas entre descargas:</p>
+
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash — /opt/spotdl/sync-all.sh</span>
+        </div>
+<pre><span class="keyword">#!/bin/bash</span>
+<span class="comment"># Script maestro de sincronización de playlists</span>
+
+<span class="value">LOG_DIR</span>=<span class="string">"/var/log/spotdl"</span>
+<span class="value">SYNC_DIR</span>=<span class="string">"/opt/spotdl"</span>
+<span class="value">MUSIC_DIR</span>=<span class="string">"/mnt/music/Playlists"</span>
+<span class="value">DATE</span>=$(date '+%Y-%m-%d %H:%M:%S')
+
+<span class="cmd">echo</span> <span class="string">"=== Inicio sincronización: $DATE ==="</span>
+
+<span class="comment"># Definir playlists</span>
+<span class="keyword">declare -A</span> PLAYLISTS=(
+  [<span class="string">"Top50-Global"</span>]=<span class="string">"37i9dQZEVXbMDoHDwVN2tF"</span>
+  [<span class="string">"Top50-USA"</span>]=<span class="string">"37i9dQZEVXbLRQDuF5jeBp"</span>
+  [<span class="string">"Top50-Spain"</span>]=<span class="string">"37i9dQZEVXbNFJfN1Vw8d9"</span>
+  [<span class="string">"Top50-Mexico"</span>]=<span class="string">"37i9dQZEVXbO3qyFxbkOE1"</span>
+  [<span class="string">"Top50-Argentina"</span>]=<span class="string">"37i9dQZEVXbMMy2roB9myp"</span>
+  [<span class="string">"Top50-Colombia"</span>]=<span class="string">"37i9dQZEVXbOa2lmxNORXQ"</span>
+)
+
+<span class="keyword">for</span> NAME <span class="keyword">in</span> <span class="string">"${!PLAYLISTS[@]}"</span>; <span class="keyword">do</span>
+  <span class="value">PLAYLIST_ID</span>=<span class="string">"${PLAYLISTS[$NAME]}"</span>
+  <span class="value">SYNC_FILE</span>=<span class="string">"$SYNC_DIR/$NAME.sync.spotdl"</span>
+  <span class="value">OUTPUT_DIR</span>=<span class="string">"$MUSIC_DIR/$NAME"</span>
+  <span class="value">URL</span>=<span class="string">"https://open.spotify.com/playlist/$PLAYLIST_ID"</span>
+
+  <span class="cmd">echo</span> <span class="string">"--- Sincronizando: $NAME ---"</span>
+
+  <span class="keyword">if</span> [ ! -f <span class="string">"$SYNC_FILE"</span> ]; <span class="keyword">then</span>
+    <span class="cmd">spotdl sync</span> <span class="string">"$URL"</span> \
+      <span class="flag">--save-file</span> <span class="string">"$SYNC_FILE"</span> \
+      <span class="flag">--output</span> <span class="string">"$OUTPUT_DIR/{title}.{output-ext}"</span>
+  <span class="keyword">else</span>
+    <span class="cmd">spotdl sync</span> <span class="string">"$SYNC_FILE"</span>
+  <span class="keyword">fi</span>
+
+  <span class="comment"># Pausa entre playlists para evitar throttling</span>
+  <span class="cmd">sleep</span> <span class="value">120</span>
+<span class="keyword">done</span>
+
+<span class="cmd">echo</span> <span class="string">"=== Sincronización completada ==="</span></pre>
+      </div>
+
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="comment"># Dar permisos y agregar a cron</span>
+<span class="cmd">chmod</span> +x /opt/spotdl/sync-all.sh
+
+<span class="comment"># Cron simplificado (una entrada)</span>
+<span class="cmd">crontab -e</span>
+<span class="value">0 3 * * *</span> /opt/spotdl/sync-all.sh >> /var/log/spotdl/sync.log 2>&1</pre>
+      </div>
+
+      <div class="callout callout-danger">
+        <div class="callout-title">⚖️ Aviso Legal</div>
+        <p>spotDL descarga audio de YouTube, no de Spotify. Asegúrate de respetar las leyes de copyright de tu país. Este sistema está pensado para uso personal.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 11. TAILSCALE -->
+  <section class="section" id="tailscale">
+    <div class="reveal">
+      <div class="section-num">Sección 11</div>
+      <h2>Acceso Remoto con Tailscale</h2>
+      <p>Tailscale crea una red VPN mesh que te permite acceder a tu servidor desde cualquier lugar sin abrir puertos en tu router.</p>
+
+      <h3>Instalar Tailscale</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="cmd">curl</span> -fsSL https://tailscale.com/install.sh | <span class="cmd">sh</span>
+<span class="cmd">tailscale up</span></pre>
+      </div>
+
+      <h3>Acceso desde fuera</h3>
+      <div class="steps">
+        <div class="step"><p>Instala <strong>Tailscale</strong> en tu teléfono (App Store / Play Store)</p></div>
+        <div class="step"><p>Inicia sesión con la misma cuenta</p></div>
+        <div class="step"><p>Accede a Navidrome: <strong style="color:var(--accent)">http://100.x.y.z:4533</strong></p></div>
+      </div>
+
+      <h3>HTTPS automático con Tailscale Serve</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="cmd">tailscale serve</span> https / http://localhost:4533
+<span class="cmd">tailscale serve</span> status
+
+<span class="comment"># Tu URL será algo como:</span>
+<span class="comment"># https://navidrome.tu-tailnet.ts.net</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- 12. CLIENTES -->
+  <section class="section" id="clientes">
+    <div class="reveal">
+      <div class="section-num">Sección 12</div>
+      <h2>Clientes Compatibles</h2>
+      <p>Navidrome soporta la API Subsonic, haciéndolo compatible con más de 40 aplicaciones.</p>
+
+      <h3>Apps Móviles</h3>
+      <div class="client-grid">
+        <div class="client-card">
+          <h4>Symfonium</h4>
+          <div class="platform">Android</div>
+          <div class="desc">El mejor cliente Android. Interfaz moderna, offline, CarPlay.</div>
+          <span class="price">~$5 único</span>
+        </div>
+        <div class="client-card">
+          <h4>play:Sub</h4>
+          <div class="platform">iOS</div>
+          <div class="desc">Excelente para iPhone. Soporte offline completo.</div>
+          <span class="price">Gratis / Premium</span>
+        </div>
+        <div class="client-card">
+          <h4>Amperfy</h4>
+          <div class="platform">iOS</div>
+          <div class="desc">Open source, muy completa y activamente desarrollada.</div>
+          <span class="price">Gratis</span>
+        </div>
+        <div class="client-card">
+          <h4>Substreamer</h4>
+          <div class="platform">Android / iOS</div>
+          <div class="desc">Multiplataforma, buena UI, soporte offline.</div>
+          <span class="price">Gratis / Premium</span>
+        </div>
+        <div class="client-card">
+          <h4>DSub</h4>
+          <div class="platform">Android</div>
+          <div class="desc">Clásica, fiable. Referencia en clientes Subsonic.</div>
+          <span class="price">Gratis</span>
+        </div>
+        <div class="client-card">
+          <h4>Tempo</h4>
+          <div class="platform">iOS</div>
+          <div class="desc">Interfaz moderna y limpia, excelente experiencia.</div>
+          <span class="price">Gratis</span>
+        </div>
+      </div>
+
+      <h3>Apps de Escritorio</h3>
+      <div class="client-grid">
+        <div class="client-card">
+          <h4>Interfaz Web</h4>
+          <div class="platform">Cualquier navegador</div>
+          <div class="desc">Incluida en Navidrome. Sin instalar nada.</div>
+          <span class="price">Incluida</span>
+        </div>
+        <div class="client-card">
+          <h4>Feishin</h4>
+          <div class="platform">Windows / macOS / Linux</div>
+          <div class="desc">Cliente de escritorio con interfaz tipo Spotify.</div>
+          <span class="price">Gratis</span>
+        </div>
+        <div class="client-card">
+          <h4>Sublime Music</h4>
+          <div class="platform">Linux</div>
+          <div class="desc">GTK nativo, ligero e integrado con el escritorio.</div>
+          <span class="price">Gratis</span>
+        </div>
+      </div>
+
+      <h3>Configurar un cliente</h3>
+      <div class="callout callout-info">
+        <div class="callout-title">ℹ️ Datos de conexión</div>
+        <p><strong>Servidor:</strong> http://IP:4533 (o tu URL de Tailscale)<br>
+        <strong>Usuario:</strong> tu usuario de Navidrome<br>
+        <strong>Contraseña:</strong> tu contraseña de Navidrome</p>
+      </div>
+      <p>La mayoría de clientes permiten descargar música para escucha offline.</p>
+    </div>
+  </section>
+
+  <!-- 13. BACKUP -->
+  <section class="section" id="backup">
+    <div class="reveal">
+      <div class="section-num">Sección 13</div>
+      <h2>Mantenimiento y Copias de Seguridad</h2>
+
+      <h3>Actualizar Navidrome</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="cmd">cd</span> /opt/navidrome
+<span class="cmd">docker compose</span> pull
+<span class="cmd">docker compose</span> up -d</pre>
+      </div>
+
+      <h3>Backup</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="comment"># Base de datos y config de Navidrome</span>
+<span class="cmd">tar</span> -czf /root/backup-navidrome-$(date +%Y%m%d).tar.gz /opt/navidrome/data/
+
+<span class="comment"># Archivos de sincronización de spotDL</span>
+<span class="cmd">tar</span> -czf /root/backup-spotdl-$(date +%Y%m%d).tar.gz /opt/spotdl/</pre>
+      </div>
+
+      <h3>Limpieza y monitoreo</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="comment"># Limpiar logs viejos (agregar a cron semanal)</span>
+<span class="value">0 0 * * 0</span> <span class="cmd">find</span> /var/log/spotdl/ -name '*.log' -mtime +30 -delete
+
+<span class="comment"># Ver espacio usado por playlists</span>
+<span class="cmd">du</span> -sh /mnt/music/Playlists/*
+
+<span class="comment"># Espacio total</span>
+<span class="cmd">df</span> -h /mnt/music</pre>
+      </div>
+
+      <p>Cada playlist Top 50 ocupa aprox. <strong>200-400 MB</strong> (50 canciones MP3). Con 6 países: ~1.5-2.5 GB renovándose semanalmente.</p>
+    </div>
+  </section>
+
+  <!-- 14. PROBLEMAS -->
+  <section class="section" id="problemas">
+    <div class="reveal">
+      <div class="section-num">Sección 14</div>
+      <h2>Solución de Problemas Comunes</h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Problema</th><th>Solución</th></tr></thead>
+          <tbody>
+            <tr><td>No aparece música nueva</td><td>Espera al escaneo (15 min) o fuerza desde Ajustes → Escanear</td></tr>
+            <tr><td>spotDL error 403</td><td>YouTube limita tu IP. Espera unas horas o usa <code>--audio youtube-music</code></td></tr>
+            <tr><td>Docker no arranca en LXC</td><td>Verifica nesting: <code>pct set 200 --features nesting=1</code></td></tr>
+            <tr><td>Permisos incorrectos</td><td><code>chown -R 1000:1000 /mnt/music</code> o ajusta user en compose</td></tr>
+            <tr><td>Sin carátulas</td><td>spotDL las incluye automáticamente. Navidrome también busca online</td></tr>
+            <tr><td>Sin transcodificación</td><td>Instala ffmpeg: <code>apt install ffmpeg</code></td></tr>
+            <tr><td>Cliente no conecta</td><td>Verifica puerto 4533 accesible. Con Tailscale: misma tailnet</td></tr>
+            <tr><td>Canciones equivocadas</td><td>Usa <code>--only-verified-results</code> para mayor precisión</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Comandos de diagnóstico</h3>
+      <div class="code-block">
+        <div class="code-header">
+          <div class="code-dots"><span></span><span></span><span></span></div>
+          <span class="code-lang">bash</span>
+        </div>
+<pre><span class="comment"># Logs de Navidrome en tiempo real</span>
+<span class="cmd">docker compose</span> -f /opt/navidrome/docker-compose.yml logs -f
+
+<span class="comment"># Estado del contenedor</span>
+<span class="cmd">docker</span> ps
+
+<span class="comment"># Probar spotDL manualmente</span>
+<span class="cmd">spotdl download</span> <span class="string">"nombre de cancion"</span> <span class="flag">--output</span> /tmp/test/
+
+<span class="comment"># Último log de sincronización</span>
+<span class="cmd">tail</span> -50 /var/log/spotdl/sync.log</pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <p><span class="accent-text">♫</span> Guía: Tu Propio Spotify Local con Navidrome + spotDL en Proxmox</p>
+    <p style="margin-top:8px;">Marzo 2026 — ¡A disfrutar de tu música!</p>
+  </footer>
+
+</div>
+
+<script>
+// Scroll reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// Active nav on scroll
+const sections = document.querySelectorAll('.section, .hero');
+const navLinks = document.querySelectorAll('.sidebar-nav a');
+
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(section => {
+    const top = section.offsetTop - 120;
+    if (window.scrollY >= top) {
+      current = section.getAttribute('id');
+    }
+  });
+  navLinks.forEach(link => {
+    link.classList.remove('active');
+    if (link.getAttribute('href') === '#' + current) {
+      link.classList.add('active');
+    }
+  });
+});
+</script>
+</body>
+</html>
