@@ -19,7 +19,7 @@
 **Monta tu propio servidor de música tipo Spotify, 100% local, sin suscripciones y sin rastreo.**
 **Descarga automática de las listas más escuchadas de EE.UU., España, México y más.**
 
-[📖 Guía Completa]("https://serverheaven.github.io/guia-spotify-lolcal-proxmox/") · [⚡ Inicio Rápido](#-inicio-rápido) · [🎯 URLs Top 50](#-urls-oficiales-de-playlists-top-50) · [❓ FAQ](#-solución-de-problemas)
+[📖 Guía Completa](https://serverheaven.github.io/guia-spotify-lolcal-proxmox/) · [⚡ Inicio Rápido](#-inicio-rápido) · [🎯 URLs Top 50](#-urls-oficiales-de-playlists-top-50) · [❓ FAQ](#-solución-de-problemas)
 
 </div>
 
