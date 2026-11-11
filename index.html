@@ -614,6 +614,12 @@ td:first-child { font-weight: 600; color: var(--text); }
   transform: translateY(0);
 }
 </style>
+<style id="i18n-css">.i18n-sw{position:fixed;top:12px;right:12px;z-index:9999;display:flex;border:1px solid rgba(255,255,255,.25);border-radius:999px;overflow:hidden;background:rgba(10,12,16,.88);backdrop-filter:blur(6px);font:600 12px/1 system-ui,sans-serif}
+.i18n-sw button{all:unset;cursor:pointer;padding:8px 13px;color:#c8d0dc;letter-spacing:.06em}
+.i18n-sw button[aria-pressed="true"]{background:#fff;color:#0a0c10}
+.i18n-sw button:focus-visible{outline:2px solid #4cc9f0;outline-offset:-2px}
+@media print{.i18n-sw{display:none}}
+</style>
 </head>
 <body>
 
@@ -713,7 +719,7 @@ td:first-child { font-weight: 600; color: var(--text); }
       </div>
 
       <h3>Software</h3>
-      <p>Proxmox VE 7.x o superior instalado y funcionando, acceso SSH al host, y conexión a internet en el contenedor para descargar música.</p>
+      <p>Proxmox VE 8.x o superior (la 7.x ya no recibe soporte) instalado y funcionando, acceso SSH al host, y conexión a internet en el contenedor para descargar música.</p>
     </div>
   </section>
 
@@ -741,7 +747,7 @@ td:first-child { font-weight: 600; color: var(--text); }
             <tr><td>Memoria</td><td>1024 MB</td></tr>
             <tr><td>Swap</td><td>512 MB</td></tr>
             <tr><td>Red</td><td>DHCP o IP estática</td></tr>
-            <tr><td>Nesting</td><td>✅ Habilitado (necesario para Docker)</td></tr>
+            <tr><td>Nesting</td><td>✅ Habilitado, junto con <code>keyctl</code> (necesarios para Docker)</td></tr>
           </tbody>
         </table>
       </div>
@@ -752,7 +758,9 @@ td:first-child { font-weight: 600; color: var(--text); }
           <div class="code-dots"><span></span><span></span><span></span></div>
           <span class="code-lang">bash</span>
         </div>
-<pre><span class="comment"># Descargar template (si no lo tienes)</span>
+<pre><span class="comment"># Actualizar el catálogo y ver el nombre exacto de la plantilla Debian 12</span>
+<span class="cmd">pveam update</span> &amp;&amp; <span class="cmd">pveam available</span> --section system | grep debian-12
+<span class="comment"># Descargar template (si no lo tienes; ajusta el nombre al que muestre el comando anterior)</span>
 <span class="cmd">pveam download</span> local debian-12-standard_12.7-1_amd64.tar.zst
 
 <span class="comment"># Crear contenedor</span>
@@ -762,7 +770,7 @@ td:first-child { font-weight: 600; color: var(--text); }
   <span class="flag">--cores</span> <span class="value">2</span> \
   <span class="flag">--rootfs</span> local-lvm:16 \
   <span class="flag">--net0</span> name=eth0,bridge=vmbr0,ip=dhcp \
-  <span class="flag">--features</span> nesting=1 \
+  <span class="flag">--features</span> keyctl=1,nesting=1 \
   <span class="flag">--unprivileged</span> <span class="value">1</span> \
   <span class="flag">--start</span> <span class="value">1</span></pre>
       </div>
@@ -866,7 +874,7 @@ mp0: /mnt/nas/music,mp=/mnt/music</pre>
       - <span class="string">"4533:4533"</span>
     <span class="flag">restart</span>: unless-stopped
     <span class="flag">environment</span>:
-      <span class="value">ND_SCANSCHEDULE</span>: 15m
+      <span class="value">ND_SCANNER_SCHEDULE</span>: "@every 15m"
       <span class="value">ND_LOGLEVEL</span>: info
       <span class="value">ND_SESSIONTIMEOUT</span>: 72h
       <span class="value">ND_ENABLETRANSCODING</span>: <span class="string">"true"</span>
@@ -897,8 +905,8 @@ mp0: /mnt/nas/music,mp=/mnt/music</pre>
       <p>La primera vez que accedas, te pedirá crear un usuario administrador.</p>
 
       <div class="callout callout-warn">
-        <div class="callout-title">⚠️ ND_SCANSCHEDULE</div>
-        <p>Configuramos el escaneo cada 15 minutos para que la música nueva de spotDL aparezca rápido. Ajusta a <code>1h</code> si prefieres menos carga.</p>
+        <div class="callout-title">⚠️ ND_SCANNER_SCHEDULE</div>
+        <p>Configuramos el escaneo cada 15 minutos para que la música nueva de spotDL aparezca rápido. Ajusta a <code>@every 1h</code> si prefieres menos carga. En versiones anteriores de Navidrome la variable se llamaba <code>ND_SCANSCHEDULE</code>.</p>
       </div>
     </div>
   </section>
@@ -921,7 +929,7 @@ mp0: /mnt/nas/music,mp=/mnt/music</pre>
         <table>
           <thead><tr><th>Variable</th><th>Descripción</th></tr></thead>
           <tbody>
-            <tr><td>ND_SCANSCHEDULE</td><td>Frecuencia de escaneo (15m, 1h, @every 30m)</td></tr>
+            <tr><td>ND_SCANNER_SCHEDULE</td><td>Frecuencia de escaneo (<code>@every 15m</code>, <code>@every 1h</code>, o expresión cron)</td></tr>
             <tr><td>ND_ENABLETRANSCODING</td><td>Transcodificación al vuelo (true/false)</td></tr>
             <tr><td>ND_TRANSCODINGCACHESIZE</td><td>Caché de transcodificación (ej: 1GB)</td></tr>
             <tr><td>ND_ENABLESHARING</td><td>Permitir compartir enlaces públicos</td></tr>
@@ -929,7 +937,7 @@ mp0: /mnt/nas/music,mp=/mnt/music</pre>
             <tr><td>ND_DEFAULTLANGUAGE</td><td>Idioma por defecto (es, en, pt)</td></tr>
             <tr><td>ND_ENABLESTARRATING</td><td>Habilitar valoraciones con estrellas</td></tr>
             <tr><td>ND_LASTFM_APIKEY</td><td>API key de Last.fm para scrobbling</td></tr>
-            <tr><td>ND_SPOTIFY_ID / SECRET</td><td>Para obtener carátulas desde Spotify</td></tr>
+            <tr><td>ND_SPOTIFY_ID / SECRET</td><td>Integración con Spotify para carátulas (eliminada en Navidrome 0.61; usa Last.fm o Deezer)</td></tr>
           </tbody>
         </table>
       </div>
@@ -1072,6 +1080,11 @@ mp0: /mnt/nas/music,mp=/mnt/music</pre>
       <h2>URLs Oficiales de Playlists Top 50</h2>
       <p>Estas son las playlists oficiales mantenidas por Spotify, actualizadas diariamente. Usa estas URLs con spotDL:</p>
 
+      <div class="callout callout-warn">
+        <div class="callout-title">⚠️ Limitación de la API de Spotify</div>
+        <p>Desde el <strong>27/11/2024</strong> la Web API de Spotify devuelve <code>404</code> para las playlists propiedad de Spotify (algorítmicas y editoriales, entre ellas los «Top 50») a las aplicaciones sin cuota extendida. Como spotDL consulta esa API, <code>spotdl sync</code> sobre estas URLs puede fallar con un error 404 o «playlist not found». Prueba primero una sola URL; si falla, usa una playlist <strong>pública de un usuario</strong> que copie el Top 50, o tus propias listas.</p>
+      </div>
+
       <div class="table-wrap">
         <table>
           <thead><tr><th>País / Región</th><th>URL de Spotify</th></tr></thead>
@@ -1178,6 +1191,11 @@ mp0: /mnt/nas/music,mp=/mnt/music</pre>
       <h2>Acceso Remoto con Tailscale</h2>
       <p>Tailscale crea una red VPN mesh que te permite acceder a tu servidor desde cualquier lugar sin abrir puertos en tu router.</p>
 
+      <div class="callout callout-info">
+        <div class="callout-title">ℹ️ Tailscale dentro de un LXC</div>
+        <p>Un contenedor sin privilegios no tiene el dispositivo TUN. En el <strong>host Proxmox</strong>, con el contenedor apagado, ejecuta <code>pct set 200 --dev0 /dev/net/tun</code> y <code>pct set 200 --features keyctl=1,nesting=1</code>, y vuelve a arrancarlo. Si no quieres dar acceso a TUN, Tailscale ofrece un modo de red en espacio de usuario (userspace networking).</p>
+      </div>
+
       <h3>Instalar Tailscale</h3>
       <div class="code-block">
         <div class="code-header">
@@ -1201,7 +1219,8 @@ mp0: /mnt/nas/music,mp=/mnt/music</pre>
           <div class="code-dots"><span></span><span></span><span></span></div>
           <span class="code-lang">bash</span>
         </div>
-<pre><span class="cmd">tailscale serve</span> https / http://localhost:4533
+<pre><span class="comment"># Requiere activar HTTPS y Serve en tu tailnet (el comando te da el enlace si falta)</span>
+<span class="cmd">tailscale serve</span> --bg 4533
 <span class="cmd">tailscale serve</span> status
 
 <span class="comment"># Tu URL será algo como:</span>
@@ -1222,7 +1241,7 @@ mp0: /mnt/nas/music,mp=/mnt/music</pre>
         <div class="client-card">
           <h4>Symfonium</h4>
           <div class="platform">Android</div>
-          <div class="desc">El mejor cliente Android. Interfaz moderna, offline, CarPlay.</div>
+          <div class="desc">El mejor cliente Android. Interfaz moderna, offline, Android Auto.</div>
           <span class="price">~$5 único</span>
         </div>
         <div class="client-card">
@@ -1350,9 +1369,10 @@ mp0: /mnt/nas/music,mp=/mnt/music</pre>
         <table>
           <thead><tr><th>Problema</th><th>Solución</th></tr></thead>
           <tbody>
-            <tr><td>No aparece música nueva</td><td>Espera al escaneo (15 min) o fuerza desde Ajustes → Escanear</td></tr>
+            <tr><td>No aparece música nueva</td><td>Espera al escaneo (15 min) o lanza un escaneo manual desde la interfaz (solo administradores)</td></tr>
+            <tr><td>spotDL: 404 / «playlist not found» en un Top 50</td><td>Spotify bloquea desde 27/11/2024 sus playlists propias en la Web API; usa una playlist pública de usuario (ver sección 09)</td></tr>
             <tr><td>spotDL error 403</td><td>YouTube limita tu IP. Espera unas horas o usa <code>--audio youtube-music</code></td></tr>
-            <tr><td>Docker no arranca en LXC</td><td>Verifica nesting: <code>pct set 200 --features nesting=1</code></td></tr>
+            <tr><td>Docker no arranca en LXC</td><td>Verifica nesting y keyctl: <code>pct set 200 --features keyctl=1,nesting=1</code></td></tr>
             <tr><td>Permisos incorrectos</td><td><code>chown -R 1000:1000 /mnt/music</code> o ajusta user en compose</td></tr>
             <tr><td>Sin carátulas</td><td>spotDL las incluye automáticamente. Navidrome también busca online</td></tr>
             <tr><td>Sin transcodificación</td><td>Instala ffmpeg: <code>apt install ffmpeg</code></td></tr>
@@ -1423,5 +1443,68 @@ window.addEventListener('scroll', () => {
   });
 });
 </script>
+<!-- i18n:start -->
+<script id="i18n-data" type="application/json">{"__title": "Your Own Local Spotify — Navidrome + spotDL Guide on Proxmox", "__desc": "Self-hosted music streaming server with Navidrome and spotDL on Proxmox LXC: install, automation, remote access and clients.", "Spotify Local<small>Guía Navidrome + Proxmox<\/small>": "Local Spotify<small>Navidrome + Proxmox Guide<\/small>", "<a href=\"#intro\"><span class=\"num\">01<\/span> Introducción<\/a>": "<a href=\"#intro\"><span class=\"num\">01<\/span> Introduction<\/a>", "<a href=\"#requisitos\"><span class=\"num\">02<\/span> Requisitos<\/a>": "<a href=\"#requisitos\"><span class=\"num\">02<\/span> Requirements<\/a>", "<a href=\"#lxc\"><span class=\"num\">03<\/span> Contenedor LXC<\/a>": "<a href=\"#lxc\"><span class=\"num\">03<\/span> LXC Container<\/a>", "<a href=\"#docker\"><span class=\"num\">04<\/span> Docker<\/a>": "<a href=\"#docker\"><span class=\"num\">04<\/span> Docker<\/a>", "<a href=\"#navidrome\"><span class=\"num\">05<\/span> Navidrome<\/a>": "<a href=\"#navidrome\"><span class=\"num\">05<\/span> Navidrome<\/a>", "<a href=\"#config\"><span class=\"num\">06<\/span> Configuración<\/a>": "<a href=\"#config\"><span class=\"num\">06<\/span> Configuration<\/a>", "<a href=\"#spotdl\"><span class=\"num\">07<\/span> spotDL<\/a>": "<a href=\"#spotdl\"><span class=\"num\">07<\/span> spotDL<\/a>", "<a href=\"#cron\"><span class=\"num\">08<\/span> Automatización<\/a>": "<a href=\"#cron\"><span class=\"num\">08<\/span> Automation<\/a>", "<a href=\"#urls\"><span class=\"num\">09<\/span> URLs Top 50<\/a>": "<a href=\"#urls\"><span class=\"num\">09<\/span> Top 50 URLs<\/a>", "<a href=\"#script\"><span class=\"num\">10<\/span> Script Maestro<\/a>": "<a href=\"#script\"><span class=\"num\">10<\/span> Master Script<\/a>", "<a href=\"#tailscale\"><span class=\"num\">11<\/span> Acceso Remoto<\/a>": "<a href=\"#tailscale\"><span class=\"num\">11<\/span> Remote Access<\/a>", "<a href=\"#clientes\"><span class=\"num\">12<\/span> Clientes<\/a>": "<a href=\"#clientes\"><span class=\"num\">12<\/span> Clients<\/a>", "<a href=\"#backup\"><span class=\"num\">13<\/span> Mantenimiento<\/a>": "<a href=\"#backup\"><span class=\"num\">13<\/span> Maintenance<\/a>", "<a href=\"#problemas\"><span class=\"num\">14<\/span> Problemas<\/a>": "<a href=\"#problemas\"><span class=\"num\">14<\/span> Troubleshooting<\/a>", "◆ Guía Completa — Marzo 2026": "◆ Complete Guide — March 2026", "Tu Propio<br><span class=\"green\">Spotify Local<\/span><br><span class=\"dim\">en Proxmox<\/span>": "Your Own<br><span class=\"green\">Local Spotify<\/span><br><span class=\"dim\">on Proxmox<\/span>", "Servidor de streaming musical autoalojado con descarga automática de las listas más escuchadas de EE.UU., España, México y más. Sin suscripciones, sin rastreo, 100% tuyo.": "A self-hosted music streaming server with automatic downloads of the most-listened charts from the US, Spain, Mexico and more. No subscriptions, no tracking, 100% yours.", "Sección 01": "Section 01", "Introducción y Arquitectura": "Introduction and Architecture", "Esta guía cubre la instalación completa de un servidor de música tipo Spotify, autoalojado en Proxmox. Combinaremos dos herramientas potentes:": "This guide covers the complete installation of a Spotify-like music server, self-hosted on Proxmox. We will combine two powerful tools:", "<strong style=\"color:var(--accent)\">Navidrome<\/strong> — Servidor de streaming musical open source, ligero y compatible con el protocolo Subsonic. Interfaz web moderna con soporte para múltiples usuarios, playlists, favoritos, letras y transcodificación al vuelo.": "<strong style=\"color:var(--accent)\">Navidrome<\/strong> — Open-source, lightweight music streaming server compatible with the Subsonic protocol. Modern web interface with support for multiple users, playlists, favorites, lyrics and on-the-fly transcoding.", "<strong style=\"color:var(--orange)\">spotDL<\/strong> — Herramienta CLI que busca canciones en YouTube a partir de metadatos de Spotify. Descarga con carátulas, letras y metadatos completos. Su función <code>sync<\/code> permite mantener playlists actualizadas automáticamente.": "<strong style=\"color:var(--orange)\">spotDL<\/strong> — CLI tool that finds songs on YouTube from Spotify metadata. Downloads with cover art, lyrics and full metadata. Its <code>sync<\/code> function keeps playlists updated automatically.", "Arquitectura del Sistema": "System Architecture", "🖥 Proxmox VE<br><small>Host de virtualización<\/small>": "🖥 Proxmox VE<br><small>Virtualization host<\/small>", "🐳 Contenedor LXC<br><small>Debian 12 + Docker<\/small>": "🐳 LXC Container<br><small>Debian 12 + Docker<\/small>", "♫ Navidrome<br><small>Puerto 4533<\/small>": "♫ Navidrome<br><small>Port 4533<\/small>", "⬇ spotDL + Cron<br><small>Descarga automática<\/small>": "⬇ spotDL + Cron<br><small>Automatic download<\/small>", "💾 /music<br><small>Volumen compartido<\/small>": "💾 /music<br><small>Shared volume<\/small>", "🖥 Navegador Web": "🖥 Web Browser", "Sección 02": "Section 02", "Requisitos Previos": "Prerequisites", "Navidrome es extremadamente ligero. Puede correr hasta en un Raspberry Pi.": "Navidrome is extremely lightweight. It can even run on a Raspberry Pi.", "Componente": "Component", "Mínimo": "Minimum", "Recomendado": "Recommended", "Disco (SO)": "Disk (OS)", "Disco (música)": "Disk (music)", "Según colección": "Depends on your collection", "Proxmox VE 8.x o superior (la 7.x ya no recibe soporte) instalado y funcionando, acceso SSH al host, y conexión a internet en el contenedor para descargar música.": "Proxmox VE 8.x or later (7.x is no longer supported) installed and working, SSH access to the host, and internet access in the container to download music.", "Sección 03": "Section 03", "Creación del Contenedor LXC en Proxmox": "Creating the LXC Container in Proxmox", "Opción A: Interfaz Web": "Option A: Web Interface", "Abre la interfaz web de Proxmox en <strong>https://tu-ip:8006<\/strong>": "Open the Proxmox web interface at <strong>https://your-ip:8006<\/strong>", "Descarga el template de <strong>Debian 12<\/strong> o <strong>Ubuntu 24.04<\/strong> desde el repositorio": "Download the <strong>Debian 12<\/strong> or <strong>Ubuntu 24.04<\/strong> template from the repository", "Crea un nuevo contenedor CT con los parámetros de la tabla": "Create a new CT container with the parameters in the table", "Parámetro": "Parameter", "Valor": "Value", "debian-12-standard o ubuntu-24.04": "debian-12-standard or ubuntu-24.04", "Disco raíz": "Root disk", "Memoria": "Memory", "Red": "Network", "DHCP o IP estática": "DHCP or static IP", "✅ Habilitado, junto con <code>keyctl<\/code> (necesarios para Docker)": "✅ Enabled, together with <code>keyctl<\/code> (both required for Docker)", "Opción B: Línea de Comandos SSH": "Option B: SSH Command Line", "# Actualizar el catálogo y ver el nombre exacto de la plantilla Debian 12": "# Update the catalog and see the exact name of the Debian 12 template", "# Descargar template (si no lo tienes; ajusta el nombre al que muestre el comando anterior)": "# Download the template (if you don't have it; adjust the name to the one shown by the previous command)", "# Crear contenedor": "# Create the container", "💡 Consejo: IP Estática": "💡 Tip: Static IP", "Es muy recomendable asignar una IP estática para acceder siempre a Navidrome en la misma dirección. Usa: <code>--net0 name=eth0,bridge=vmbr0,ip=192.168.1.50/24,gw=192.168.1.1<\/code>": "It is highly recommended to assign a static IP so you always reach Navidrome at the same address. Use: <code>--net0 name=eth0,bridge=vmbr0,ip=192.168.1.50/24,gw=192.168.1.1<\/code>", "Montar almacenamiento externo (NAS/disco)": "Mounting external storage (NAS/disk)", "# Editar /etc/pve/lxc/200.conf en el host Proxmox": "# Edit /etc/pve/lxc/200.conf on the Proxmox host", "# Agregar línea para montar directorio:": "# Add a line to mount a directory:", "Sección 04": "Section 04", "Instalación de Docker y Docker Compose": "Installing Docker and Docker Compose", "Entra al contenedor y ejecuta los siguientes comandos para instalar Docker desde el repositorio oficial:": "Enter the container and run the following commands to install Docker from the official repository:", "# Entrar al contenedor desde Proxmox": "# Enter the container from Proxmox", "# Actualizar paquetes": "# Update packages", "# Instalar dependencias": "# Install dependencies", "# Agregar repositorio oficial de Docker": "# Add the official Docker repository", "# Instalar Docker": "# Install Docker", "# Verificar instalación": "# Verify the installation", "ℹ️ Para Ubuntu": "ℹ️ For Ubuntu", "Si usas Ubuntu en lugar de Debian, cambia <code>debian<\/code> por <code>ubuntu<\/code> en la URL del repositorio de Docker.": "If you use Ubuntu instead of Debian, change <code>debian<\/code> to <code>ubuntu<\/code> in the Docker repository URL.", "Sección 05": "Section 05", "Despliegue de Navidrome": "Deploying Navidrome", "Crear estructura de directorios": "Create the directory structure", "Archivo docker-compose.yml": "docker-compose.yml file", "Levantar el servicio": "Start the service", "# Verificar que está corriendo": "# Check that it is running", "Navidrome estará disponible en <strong style=\"color:var(--accent)\">http://IP-DEL-CONTENEDOR:4533<\/strong>": "Navidrome will be available at <strong style=\"color:var(--accent)\">http://CONTAINER-IP:4533<\/strong>", "La primera vez que accedas, te pedirá crear un usuario administrador.": "The first time you open it, you will be asked to create an administrator user.", "Configuramos el escaneo cada 15 minutos para que la música nueva de spotDL aparezca rápido. Ajusta a <code>@every 1h<\/code> si prefieres menos carga. En versiones anteriores de Navidrome la variable se llamaba <code>ND_SCANSCHEDULE<\/code>.": "We set the scan to every 15 minutes so new music from spotDL shows up quickly. Change it to <code>@every 1h<\/code> if you prefer less load. In older Navidrome versions the variable was called <code>ND_SCANSCHEDULE<\/code>.", "Sección 06": "Section 06", "Configuración de Navidrome": "Navidrome Configuration", "Primer acceso": "First access", "Abre tu navegador → <strong>http://IP:4533<\/strong>": "Open your browser → <strong>http://IP:4533<\/strong>", "Crea tu cuenta de administrador": "Create your administrator account", "Navidrome escaneará <code>/music<\/code> automáticamente": "Navidrome will scan <code>/music<\/code> automatically", "Variables de entorno avanzadas": "Advanced environment variables", "Variable": "Variable", "Descripción": "Description", "Frecuencia de escaneo (<code>@every 15m<\/code>, <code>@every 1h<\/code>, o expresión cron)": "Scan frequency (<code>@every 15m<\/code>, <code>@every 1h<\/code>, or a cron expression)", "Transcodificación al vuelo (true/false)": "On-the-fly transcoding (true/false)", "Caché de transcodificación (ej: 1GB)": "Transcoding cache (e.g. 1GB)", "Permitir compartir enlaces públicos": "Allow sharing public links", "Permitir descargas desde la interfaz": "Allow downloads from the interface", "Idioma por defecto (es, en, pt)": "Default language (es, en, pt)", "Habilitar valoraciones con estrellas": "Enable star ratings", "API key de Last.fm para scrobbling": "Last.fm API key for scrobbling", "Integración con Spotify para carátulas (eliminada en Navidrome 0.61; usa Last.fm o Deezer)": "Spotify integration for cover art (removed in Navidrome 0.61; use Last.fm or Deezer)", "Usuarios adicionales": "Additional users", "Desde la interfaz web → <strong>Ajustes → Usuarios<\/strong>. Cada usuario tiene sus propias listas, favoritos e historial independiente.": "From the web interface → <strong>Settings → Users<\/strong>. Each user has their own independent playlists, favorites and history.", "Sección 07": "Section 07", "Instalación de spotDL": "Installing spotDL", "spotDL es una herramienta de código abierto que busca canciones en YouTube a partir de metadatos de Spotify. Descarga todo con carátulas, artista, álbum, letras y género.": "spotDL is an open-source tool that finds songs on YouTube from Spotify metadata. It downloads everything with cover art, artist, album, lyrics and genre.", "Instalación": "Installation", "# Instalar Python y dependencias": "# Install Python and dependencies", "# Instalar spotDL": "# Install spotDL", "# Verificar": "# Verify", "Uso básico": "Basic usage", "# Descargar una canción": "# Download a single song", "# Descargar playlist completa con estructura de carpetas": "# Download a full playlist with a folder structure", "Función SYNC (clave para automatización)": "SYNC function (key for automation)", "La función <code>sync<\/code> compara el estado actual de una playlist con lo descargado: baja las nuevas y elimina las que ya no están.": "The <code>sync<\/code> function compares the current state of a playlist with what has been downloaded: it fetches new songs and removes those that are no longer there.", "# Primera vez: crear archivo de sincronización": "# First time: create the sync file", "# Ejecuciones posteriores: solo actualizar": "# Later runs: just update", "💡 Ventaja de SYNC": "💡 SYNC advantage", "No re-descarga toda la playlist cada vez. Solo baja canciones nuevas y elimina las que se quitaron. Perfecto para playlists que cambian semanalmente como los Top 50.": "It doesn't re-download the whole playlist every time. It only fetches new songs and removes the ones that were taken out. Perfect for playlists that change weekly, like the Top 50s.", "Sección 08": "Section 08", "Automatización con Cron Jobs": "Automation with Cron Jobs", "Crear directorios de trabajo": "Create working directories", "Inicializar sincronizaciones": "Initialize the syncs", "Ejecuta una vez para crear los archivos <code>.sync.spotdl<\/code>:": "Run once to create the <code>.sync.spotdl<\/code> files:", "# Top 50 USA": "# Top 50 USA", "# Top 50 España": "# Top 50 Spain", "# Top 50 México": "# Top 50 Mexico", "Configurar Cron": "Configure Cron", "# Sincronizar playlists Top 50 cada día a las 3 AM": "# Sync the Top 50 playlists every day at 3 AM", "💡 ¿Por qué escalonados cada 15 min?": "💡 Why stagger them every 15 min?", "Ejecutar todo a la vez puede saturar tu conexión y provocar errores de throttling en YouTube. Escalonándolas se evitan bloqueos.": "Running everything at once can saturate your connection and cause throttling errors from YouTube. Staggering them avoids blocks.", "Sección 09": "Section 09", "URLs Oficiales de Playlists Top 50": "Official Top 50 Playlist URLs", "Estas son las playlists oficiales mantenidas por Spotify, actualizadas diariamente. Usa estas URLs con spotDL:": "These are the official playlists maintained by Spotify, updated daily. Use these URLs with spotDL:", "⚠️ Limitación de la API de Spotify": "⚠️ Spotify API limitation", "Desde el <strong>27/11/2024<\/strong> la Web API de Spotify devuelve <code>404<\/code> para las playlists propiedad de Spotify (algorítmicas y editoriales, entre ellas los «Top 50») a las aplicaciones sin cuota extendida. Como spotDL consulta esa API, <code>spotdl sync<\/code> sobre estas URLs puede fallar con un error 404 o «playlist not found». Prueba primero una sola URL; si falla, usa una playlist <strong>pública de un usuario<\/strong> que copie el Top 50, o tus propias listas.": "Since <strong>27 Nov 2024<\/strong> the Spotify Web API returns <code>404<\/code> for Spotify-owned playlists (algorithmic and editorial ones, including the \"Top 50\"s) to apps without an extended quota. Since spotDL queries that API, <code>spotdl sync<\/code> on these URLs may fail with a 404 or \"playlist not found\". Try a single URL first; if it fails, use a <strong>public user-made playlist<\/strong> that mirrors the Top 50, or your own playlists.", "País / Región": "Country / Region", "URL de Spotify": "Spotify URL", "🌍 Global": "🌍 Global", "🇺🇸 Estados Unidos": "🇺🇸 United States", "🇪🇸 España": "🇪🇸 Spain", "🇲🇽 México": "🇲🇽 Mexico", "🇦🇷 Argentina": "🇦🇷 Argentina", "🇨🇴 Colombia": "🇨🇴 Colombia", "🇬🇧 Reino Unido": "🇬🇧 United Kingdom", "🇫🇷 Francia": "🇫🇷 France", "🇩🇪 Alemania": "🇩🇪 Germany", "🇧🇷 Brasil": "🇧🇷 Brazil", "🇮🇹 Italia": "🇮🇹 Italy", "🇨🇱 Chile": "🇨🇱 Chile", "Todas las playlists oficiales siguen el patrón <code>37i9dQZEVXb<\/code> + identificador del país.": "All the official playlists follow the pattern <code>37i9dQZEVXb<\/code> + country identifier.", "Sección 10": "Section 10", "Script Maestro de Sincronización": "Master Sync Script", "En lugar de múltiples entradas en cron, usa un solo script que gestione todas las playlists con pausas entre descargas:": "Instead of several cron entries, use a single script that manages all the playlists with pauses between downloads:", "# Script maestro de sincronización de playlists": "# Master playlist synchronization script", "# Definir playlists": "# Define playlists", "# Pausa entre playlists para evitar throttling": "# Pause between playlists to avoid throttling", "# Dar permisos y agregar a cron": "# Make executable and add to cron", "# Cron simplificado (una entrada)": "# Simplified cron (a single entry)", "⚖️ Aviso Legal": "⚖️ Legal notice", "spotDL descarga audio de YouTube, no de Spotify. Asegúrate de respetar las leyes de copyright de tu país. Este sistema está pensado para uso personal.": "spotDL downloads audio from YouTube, not from Spotify. Make sure you respect the copyright laws of your country. This system is intended for personal use.", "Sección 11": "Section 11", "Acceso Remoto con Tailscale": "Remote Access with Tailscale", "Tailscale crea una red VPN mesh que te permite acceder a tu servidor desde cualquier lugar sin abrir puertos en tu router.": "Tailscale creates a mesh VPN that lets you reach your server from anywhere without opening ports on your router.", "ℹ️ Tailscale dentro de un LXC": "ℹ️ Tailscale inside an LXC", "Un contenedor sin privilegios no tiene el dispositivo TUN. En el <strong>host Proxmox<\/strong>, con el contenedor apagado, ejecuta <code>pct set 200 --dev0 /dev/net/tun<\/code> y <code>pct set 200 --features keyctl=1,nesting=1<\/code>, y vuelve a arrancarlo. Si no quieres dar acceso a TUN, Tailscale ofrece un modo de red en espacio de usuario (userspace networking).": "An unprivileged container doesn't have the TUN device. On the <strong>Proxmox host<\/strong>, with the container stopped, run <code>pct set 200 --dev0 /dev/net/tun<\/code> and <code>pct set 200 --features keyctl=1,nesting=1<\/code>, then start it again. If you don't want to grant TUN access, Tailscale offers a userspace networking mode.", "Instalar Tailscale": "Install Tailscale", "Acceso desde fuera": "Access from outside", "Instala <strong>Tailscale<\/strong> en tu teléfono (App Store / Play Store)": "Install <strong>Tailscale<\/strong> on your phone (App Store / Play Store)", "Inicia sesión con la misma cuenta": "Sign in with the same account", "Accede a Navidrome: <strong style=\"color:var(--accent)\">http://100.x.y.z:4533<\/strong>": "Access Navidrome: <strong style=\"color:var(--accent)\">http://100.x.y.z:4533<\/strong>", "HTTPS automático con Tailscale Serve": "Automatic HTTPS with Tailscale Serve", "# Requiere activar HTTPS y Serve en tu tailnet (el comando te da el enlace si falta)": "# Requires enabling HTTPS and Serve on your tailnet (the command gives you the link if missing)", "# Tu URL será algo como:": "# Your URL will look something like:", "Sección 12": "Section 12", "Clientes Compatibles": "Compatible Clients", "Navidrome soporta la API Subsonic, haciéndolo compatible con más de 40 aplicaciones.": "Navidrome supports the Subsonic API, making it compatible with more than 40 apps.", "Apps Móviles": "Mobile Apps", "El mejor cliente Android. Interfaz moderna, offline, Android Auto.": "The best Android client. Modern interface, offline, Android Auto.", "~$5 único": "~$5 one-time", "Excelente para iPhone. Soporte offline completo.": "Great for iPhone. Full offline support.", "Gratis / Premium": "Free / Premium", "Open source, muy completa y activamente desarrollada.": "Open source, very complete and actively developed.", "Gratis": "Free", "Android / iOS": "Android / iOS", "Multiplataforma, buena UI, soporte offline.": "Cross-platform, good UI, offline support.", "Clásica, fiable. Referencia en clientes Subsonic.": "Classic, reliable. The reference among Subsonic clients.", "Interfaz moderna y limpia, excelente experiencia.": "Modern, clean interface, excellent experience.", "Apps de Escritorio": "Desktop Apps", "Interfaz Web": "Web Interface", "Cualquier navegador": "Any browser", "Incluida en Navidrome. Sin instalar nada.": "Included with Navidrome. Nothing to install.", "Incluida": "Included", "Windows / macOS / Linux": "Windows / macOS / Linux", "Cliente de escritorio con interfaz tipo Spotify.": "Desktop client with a Spotify-like interface.", "GTK nativo, ligero e integrado con el escritorio.": "Native GTK, lightweight and integrated with the desktop.", "Configurar un cliente": "Setting up a client", "ℹ️ Datos de conexión": "ℹ️ Connection details", "<strong>Servidor:<\/strong> http://IP:4533 (o tu URL de Tailscale)<br> <strong>Usuario:<\/strong> tu usuario de Navidrome<br> <strong>Contraseña:<\/strong> tu contraseña de Navidrome": "<strong>Server:<\/strong> http://IP:4533 (or your Tailscale URL)<br> <strong>User:<\/strong> your Navidrome user<br> <strong>Password:<\/strong> your Navidrome password", "La mayoría de clientes permiten descargar música para escucha offline.": "Most clients let you download music for offline listening.", "Sección 13": "Section 13", "Mantenimiento y Copias de Seguridad": "Maintenance and Backups", "Actualizar Navidrome": "Update Navidrome", "Backup": "Backup", "# Base de datos y config de Navidrome": "# Navidrome database and config", "# Archivos de sincronización de spotDL": "# spotDL sync files", "Limpieza y monitoreo": "Cleanup and monitoring", "# Limpiar logs viejos (agregar a cron semanal)": "# Remove old logs (add to a weekly cron)", "# Ver espacio usado por playlists": "# See space used by playlists", "# Espacio total": "# Total space", "Cada playlist Top 50 ocupa aprox. <strong>200-400 MB<\/strong> (50 canciones MP3). Con 6 países: ~1.5-2.5 GB renovándose semanalmente.": "Each Top 50 playlist takes roughly <strong>200-400 MB<\/strong> (50 MP3 songs). With 6 countries: ~1.5-2.5 GB, renewed weekly.", "Sección 14": "Section 14", "Solución de Problemas Comunes": "Common Troubleshooting", "Problema": "Problem", "Solución": "Solution", "No aparece música nueva": "No new music appears", "Espera al escaneo (15 min) o lanza un escaneo manual desde la interfaz (solo administradores)": "Wait for the scan (15 min) or trigger a manual scan from the interface (admins only)", "spotDL: 404 / «playlist not found» en un Top 50": "spotDL: 404 / \"playlist not found\" on a Top 50", "Spotify bloquea desde 27/11/2024 sus playlists propias en la Web API; usa una playlist pública de usuario (ver sección 09)": "Since 27 Nov 2024 Spotify blocks its own playlists in the Web API; use a public user-made playlist (see section 09)", "spotDL error 403": "spotDL error 403", "YouTube limita tu IP. Espera unas horas o usa <code>--audio youtube-music<\/code>": "YouTube is rate-limiting your IP. Wait a few hours or use <code>--audio youtube-music<\/code>", "Docker no arranca en LXC": "Docker won't start in the LXC", "Verifica nesting y keyctl: <code>pct set 200 --features keyctl=1,nesting=1<\/code>": "Check nesting and keyctl: <code>pct set 200 --features keyctl=1,nesting=1<\/code>", "Permisos incorrectos": "Wrong permissions", "<code>chown -R 1000:1000 /mnt/music<\/code> o ajusta user en compose": "<code>chown -R 1000:1000 /mnt/music<\/code> or adjust <code>user<\/code> in the compose file", "Sin carátulas": "No cover art", "spotDL las incluye automáticamente. Navidrome también busca online": "spotDL includes it automatically. Navidrome also looks online", "Sin transcodificación": "No transcoding", "Instala ffmpeg: <code>apt install ffmpeg<\/code>": "Install ffmpeg: <code>apt install ffmpeg<\/code>", "Cliente no conecta": "Client can't connect", "Verifica puerto 4533 accesible. Con Tailscale: misma tailnet": "Check that port 4533 is reachable. With Tailscale: same tailnet", "Canciones equivocadas": "Wrong songs", "Usa <code>--only-verified-results<\/code> para mayor precisión": "Use <code>--only-verified-results<\/code> for better accuracy", "Comandos de diagnóstico": "Diagnostic commands", "# Logs de Navidrome en tiempo real": "# Navidrome logs in real time", "# Estado del contenedor": "# Container status", "# Probar spotDL manualmente": "# Test spotDL manually", "# Último log de sincronización": "# Latest sync log", "<span class=\"accent-text\">♫<\/span> Guía: Tu Propio Spotify Local con Navidrome + spotDL en Proxmox": "<span class=\"accent-text\">♫<\/span> Guide: Your Own Local Spotify with Navidrome + spotDL on Proxmox", "Marzo 2026 — ¡A disfrutar de tu música!": "March 2026 — Enjoy your music!"}</script>
+<script>window.__I18N={storeKey:"spotify-guide-lang"};</script>
+<script>
+(function(){
+  var BLOCK=/^(DIV|P|LI|UL|OL|TABLE|THEAD|TBODY|TFOOT|TR|TD|TH|H[1-6]|SECTION|PRE|BUTTON|SUMMARY|DETAILS|NAV|HEADER|FOOTER|ASIDE|MAIN|ARTICLE|FIGURE|FIGCAPTION|BLOCKQUOTE|DL|DT|DD|FORM|SELECT|OPTION|UL)$/;
+  var SKIP=/^(SCRIPT|STYLE|SVG|NOSCRIPT|TEMPLATE|TEXTAREA)$/;
+  function norm(s){return s.replace(/\s+/g,' ').trim();}
+  function hasBlock(el){var all=el.getElementsByTagName('*');for(var i=0;i<all.length;i++){if(BLOCK.test(all[i].tagName))return true;}return false;}
+  function collect(root){
+    var out=[];
+    (function walk(el,inPre){
+      if(SKIP.test(el.tagName)||el.hasAttribute&&el.hasAttribute('data-noi18n'))return;
+      var pre=inPre||el.tagName==='PRE';
+      if(!pre && el.textContent.trim() && !hasBlock(el) && el!==root){
+        out.push({el:el,key:norm(el.innerHTML),kind:'el'});return;
+      }
+      for(var n=el.firstChild;n;n=n.nextSibling){
+        if(n.nodeType===3){var k=norm(n.nodeValue);if(k)out.push({node:n,key:k,kind:pre?'pre':'text'});}
+        else if(n.nodeType===1)walk(n,pre);
+      }
+    })(root,false);
+    return out;
+  }
+  if(typeof module!=='undefined'&&module.exports){module.exports=collect;return;}
+  var cfg=window.__I18N||{};
+  var EN=JSON.parse(document.getElementById('i18n-data').textContent);
+  var KEY=cfg.storeKey||'guide-lang';
+  var items=null,titleEs=document.title;
+  var meta=document.querySelector('meta[name="description"]');var metaEs=meta?meta.getAttribute('content'):null;
+  function pick(){
+    var q=(location.search.match(/[?&]lang=(en|es)/)||[])[1];if(q)return q;
+    try{var s=localStorage.getItem(KEY);if(s==='en'||s==='es')return s;}catch(e){}
+    return /^es/i.test(navigator.language||'es')?'es':'en';
+  }
+  function apply(lang){
+    if(!items)items=collect(document.body).map(function(it){
+      if(it.el)it.es=it.el.innerHTML;else it.es=it.node.nodeValue;return it;});
+    items.forEach(function(it){
+      var en=EN[it.key];
+      if(lang==='en'&&en!==undefined){
+        if(it.el)it.el.innerHTML=en;
+        else{var m=it.es.match(/^(\s*)[\s\S]*?(\s*)$/);it.node.nodeValue=m[1]+en+m[2];}
+      }else{
+        if(it.el)it.el.innerHTML=it.es;else it.node.nodeValue=it.es;
+      }
+    });
+    document.documentElement.lang=lang;
+    document.title=(lang==='en'&&EN['__title'])?EN['__title']:titleEs;
+    if(meta&&metaEs!==null)meta.setAttribute('content',(lang==='en'&&EN['__desc'])?EN['__desc']:metaEs);
+    var bs=document.querySelectorAll('.i18n-sw button');
+    for(var i=0;i<bs.length;i++)bs[i].setAttribute('aria-pressed',bs[i].getAttribute('data-l')===lang?'true':'false');
+    try{localStorage.setItem(KEY,lang);}catch(e){}
+    try{var u=new URL(location.href);u.searchParams.set('lang',lang);history.replaceState(null,'',u);}catch(e){}
+  }
+  var sw=document.createElement('div');sw.className='i18n-sw';sw.setAttribute('role','group');sw.setAttribute('aria-label','Language / Idioma');
+  sw.innerHTML='<button type="button" data-l="es">ES</button><button type="button" data-l="en">EN</button>';
+  sw.addEventListener('click',function(e){var l=e.target.getAttribute&&e.target.getAttribute('data-l');if(l)apply(l);});
+  document.body.appendChild(sw);
+  apply(pick());
+})();
+</script>
+<!-- i18n:end -->
 </body>
 </html>

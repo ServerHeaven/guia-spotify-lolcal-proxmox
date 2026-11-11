@@ -23,6 +23,8 @@
 
 </div>
 
+🇪🇸 Español (este archivo) · 🇬🇧 [English README](README.en.md) · La guía web está en español e inglés (selector **ES / EN**) · The web guide is bilingual (**ES / EN** switch)
+
 -----
 
 ## 📋 Tabla de Contenidos
@@ -112,7 +114,7 @@ Este repositorio es una **guía completa** para montar tu propio servidor de str
 
 ### Software
 
-- ✅ Proxmox VE 7.x o superior
+- ✅ Proxmox VE 8.x o superior (la 7.x ya no recibe soporte)
 - ✅ Acceso SSH al host
 - ✅ Conexión a internet en el contenedor
 
@@ -127,7 +129,7 @@ Este repositorio es una **guía completa** para montar tu propio servidor de str
 pct create 200 local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst \
   --hostname navidrome --memory 1024 --cores 2 \
   --rootfs local-lvm:16 --net0 name=eth0,bridge=vmbr0,ip=dhcp \
-  --features nesting=1 --unprivileged 1 --start 1
+  --features keyctl=1,nesting=1 --unprivileged 1 --start 1
 
 # 2. Entrar al contenedor e instalar Docker
 pct enter 200
@@ -148,7 +150,7 @@ services:
       - "4533:4533"
     restart: unless-stopped
     environment:
-      ND_SCANSCHEDULE: 15m
+      ND_SCANNER_SCHEDULE: "@every 15m"
       ND_LOGLEVEL: info
       ND_SESSIONTIMEOUT: 72h
       ND_ENABLETRANSCODING: "true"
@@ -216,7 +218,7 @@ pct create 200 local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst \
   --cores 2 \
   --rootfs local-lvm:16 \
   --net0 name=eth0,bridge=vmbr0,ip=192.168.1.50/24,gw=192.168.1.1 \
-  --features nesting=1 \
+  --features keyctl=1,nesting=1 \
   --unprivileged 1 \
   --start 1
 ```
@@ -295,7 +297,7 @@ services:
       - "4533:4533"
     restart: unless-stopped
     environment:
-      ND_SCANSCHEDULE: 15m
+      ND_SCANNER_SCHEDULE: "@every 15m"
       ND_LOGLEVEL: info
       ND_SESSIONTIMEOUT: 72h
       ND_ENABLETRANSCODING: "true"
@@ -321,19 +323,19 @@ docker compose logs -f navidrome
 Accede a **http://IP:4533** y crea tu usuario administrador.
 
 > [!IMPORTANT]
-> `ND_SCANSCHEDULE: 15m` hace que la música nueva aparezca rápido. Ajusta a `1h` si prefieres menos carga.
+> `ND_SCANNER_SCHEDULE: "@every 15m"` hace que la música nueva aparezca rápido. Ajusta a `@every 1h` si prefieres menos carga (en versiones antiguas de Navidrome la variable era `ND_SCANSCHEDULE`).
 
 #### Variables de configuración útiles
 
 |Variable                  |Descripción                                      |
 |:-------------------------|:------------------------------------------------|
-|`ND_SCANSCHEDULE`         |Frecuencia de escaneo (`15m`, `1h`, `@every 30m`)|
+|`ND_SCANNER_SCHEDULE`      |Frecuencia de escaneo (`@every 15m`, `@every 1h`, cron)|
 |`ND_ENABLETRANSCODING`    |Transcodificación al vuelo                       |
 |`ND_ENABLESHARING`        |Compartir enlaces públicos                       |
 |`ND_ENABLEDOWNLOADS`      |Descargas desde la interfaz                      |
 |`ND_DEFAULTLANGUAGE`      |Idioma (`es`, `en`, `pt`)                        |
 |`ND_LASTFM_APIKEY`        |Scrobbling con Last.fm                           |
-|`ND_SPOTIFY_ID` / `SECRET`|Carátulas desde Spotify                          |
+|`ND_SPOTIFY_ID` / `SECRET`|Carátulas desde Spotify (eliminado en Navidrome 0.61; usa Last.fm o Deezer)|
 
 -----
 
@@ -497,13 +499,16 @@ crontab -e
 
 [Tailscale](https://tailscale.com/) crea una VPN mesh para acceder desde cualquier lugar sin abrir puertos.
 
+> ℹ️ **Dentro de un LXC sin privilegios** hace falta el dispositivo TUN. En el host Proxmox, con el contenedor apagado: `pct set 200 --dev0 /dev/net/tun` y `pct set 200 --features keyctl=1,nesting=1`; después arráncalo. ([Docs de Tailscale](https://tailscale.com/kb/1130/lxc-unprivileged))
+
+
 ```bash
 # Instalar
 curl -fsSL https://tailscale.com/install.sh | sh
 tailscale up
 
 # HTTPS automático
-tailscale serve https / http://localhost:4533
+tailscale serve --bg 4533
 tailscale serve status
 # → https://navidrome.tu-tailnet.ts.net
 ```
@@ -517,6 +522,9 @@ tailscale serve status
 ## 🎯 URLs Oficiales de Playlists Top 50
 
 Playlists oficiales de Spotify, actualizadas diariamente. Usa directamente con spotDL:
+
+> ⚠️ **Limitación de la API de Spotify.** Desde el 27/11/2024 la Web API devuelve `404` para las playlists propiedad de Spotify (algorítmicas y editoriales, como los «Top 50») a las aplicaciones sin cuota extendida. Como spotDL consulta esa API, `spotdl sync` sobre estas URLs puede fallar con un 404 o «playlist not found». Prueba primero una sola URL; si falla, usa una playlist **pública de un usuario** que copie el Top 50, o tus propias listas.
+
 
 |País            |Playlist ID             |URL                                                              |
 |:---------------|:-----------------------|:----------------------------------------------------------------|
@@ -546,7 +554,7 @@ Navidrome soporta la API Subsonic → compatible con **40+ aplicaciones**.
 
 |App                                                                              |Plataforma   |Precio          |Notas                                    |
 |:--------------------------------------------------------------------------------|:------------|:---------------|:----------------------------------------|
-|**[Symfonium](https://symfonium.app/)**                                          |Android      |~$5 (único)     |⭐ La mejor para Android. CarPlay, offline|
+|**[Symfonium](https://symfonium.app/)**                                          |Android      |~$5 (único)     |⭐ La mejor para Android. Android Auto, offline|
 |**[play:Sub](https://apps.apple.com/app/play-sub/id955329386)**                  |iOS          |Gratis / Premium|Excelente para iPhone                    |
 |**[Amperfy](https://github.com/BLeeEZ/amperfy)**                                 |iOS          |Gratis          |Open source, muy completa                |
 |**[Substreamer](https://substreamerapp.com/)**                                   |Android / iOS|Gratis / Premium|Multiplataforma                          |
@@ -616,9 +624,10 @@ df -h /mnt/music
 
 |Problema                |Solución                                                             |
 |:-----------------------|:--------------------------------------------------------------------|
-|Música nueva no aparece |Espera 15 min (escaneo) o fuerza desde **Ajustes → Escanear**        |
+|Música nueva no aparece |Espera 15 min (escaneo) o lanza un escaneo manual (solo admins)       |
+|spotDL 404 en un Top 50 |Spotify bloquea desde 27/11/2024 sus playlists propias en la Web API; usa una playlist pública de usuario|
 |spotDL error 403        |YouTube limita tu IP. Espera unas horas o usa `--audio youtube-music`|
-|Docker no arranca en LXC|Verifica nesting: `pct set 200 --features nesting=1`                 |
+|Docker no arranca en LXC|Verifica nesting y keyctl: `pct set 200 --features keyctl=1,nesting=1`|
 |Permisos incorrectos    |`chown -R 1000:1000 /mnt/music` o ajusta `user` en compose           |
 |Sin carátulas           |spotDL las incluye. Navidrome también busca online                   |
 |Sin transcodificación   |Instala ffmpeg: `apt install ffmpeg`                                 |
